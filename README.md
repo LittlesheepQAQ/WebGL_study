@@ -1,1 +1,1 @@
-# This is used for Computer Graphic Expriments with my teammates.
+# This is used for Computer Graphics Expriments with my teammates.
