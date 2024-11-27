@@ -3,70 +3,70 @@
 
 <script id="vertex-shader" type="x-shader/x-vertex">
 
-    attribute vec4 vPosition;
-    attribute vec4 vNormal;
+attribute vec4 vPosition;
+attribute vec4 vNormal;
+
+varying vec4 fColor;
+
+
+uniform vec4 ambientProduct, diffuseProduct, specularProduct;
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+uniform vec4 ulightPosition;
+uniform float shininess;
+uniform mat3 normalMatrix;
+
+
+void
+main()
+{
+    vec4 lightPosition = modelViewMatrix * ulightPosition;
+    // pos is vertex position in eye coordinates
     
-    varying vec4 fColor;
+    vec3 pos = (modelViewMatrix * vPosition).xyz;
     
+    // vector from vertex position to light source
     
-    uniform vec4 ambientProduct, diffuseProduct, specularProduct;
-    uniform mat4 modelViewMatrix;
-    uniform mat4 projectionMatrix;
-    uniform vec4 lightPosition;
-    uniform float shininess;
-    uniform mat3 normalMatrix;
+    vec3 L;
     
+    // check for directional light
     
-    void
-    main()
-    {
-        
-        // pos is vertex position in eye coordinates
-        
-        vec3 pos = (modelViewMatrix * vPosition).xyz;
-        
-        // vector from vertex position to light source
-        
-        vec3 L;
-        
-        // check for directional light
-        
-        if(lightPosition.w == 0.0) L = normalize(lightPosition.xyz);
-        else L = normalize( lightPosition.xyz - pos );
+    if(lightPosition.w == 0.0) L = normalize(lightPosition.xyz);
+    else L = normalize( lightPosition.xyz - pos );
+
+    // Because the eye point the is at the orgin
+    // the vector from the vertex position to the eye is
+    	
+    vec3 E = -normalize( pos );
     
-        // Because the eye point the is at the orgin
-        // the vector from the vertex position to the eye is
-            
-        vec3 E = -normalize( pos );
-        
-        // halfway vector
-        
-        vec3 H = normalize( L + E );
+    // halfway vector
     
-        // Transform vertex normal into eye coordinates
-        
-        vec3 N = normalize( normalMatrix*vNormal.xyz);
+    vec3 H = normalize( L + E );
+
+    // Transform vertex normal into eye coordinates
     
+    vec3 N = normalize( normalMatrix*vNormal.xyz);
+
+
+    // Compute terms in the illumination equation
+    vec4 ambient = ambientProduct;
+
+    float Kd = max( dot(L, N), 0.0 );
+    vec4  diffuse = Kd*diffuseProduct;
+
+    float Ks = pow( max(dot(N, H), 0.0), shininess );
+    vec4  specular = Ks * specularProduct;
     
-        // Compute terms in the illumination equation
-        vec4 ambient = ambientProduct;
+    if( dot(L, N) < 0.0 ) {
+	specular = vec4(0.0, 0.0, 0.0, 1.0);
+    } 
+
+    gl_Position = projectionMatrix * modelViewMatrix * vPosition;
     
-        float Kd = max( dot(L, N), 0.0 );
-        vec4  diffuse = Kd*diffuseProduct;
-    
-        float Ks = pow( max(dot(N, H), 0.0), shininess );
-        vec4  specular = Ks * specularProduct;
-        
-        if( dot(L, N) < 0.0 ) {
-        specular = vec4(0.0, 0.0, 0.0, 1.0);
-        } 
-    
-        gl_Position = projectionMatrix * modelViewMatrix * vPosition;
-        
-        fColor = ambient + diffuse +specular;
-    
-        fColor.a = 1.0;
-    }
+    fColor = ambient + diffuse +specular;
+
+    fColor.a = 1.0;
+}
 </script>
 
 <script id="fragment-shader" type="x-shader/x-fragment">

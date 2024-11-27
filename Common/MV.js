@@ -309,7 +309,16 @@ function mult( u, v )
         }
 
         for ( var i = 0; i < u.length; ++i ) {
-            result.push( u[i] * v[i] );
+            if(u[i].length === v.length){
+                var sum = 0;
+                for(var j = 0; j < u[i].length; j++){
+                    sum += u[i][j] * v[j];
+                }
+                result.push(sum);
+            }
+            else{
+                result.push( u[i] * v[i] );
+            }   
         }
 
         return result;
@@ -433,11 +442,9 @@ function lookAt( eye, at, up )
         return mat4();
     }
 
-    var v = normalize( subtract(at, eye) );  // view direction vector
-    var n = normalize( cross(v, up) );       // perpendicular vector
-    var u = normalize( cross(n, v) );        // "new" up vector
-
-    v = negate( v );
+    var v = normalize( subtract(eye, at) );  // view direction vector
+    var n = normalize( cross(up, v) );       // perpendicular vector
+    var u = normalize( cross(v, n) );        // "new" up vector
 
     var result = mat4(
         vec4( n, -dot(n, eye) ),

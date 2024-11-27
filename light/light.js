@@ -14,6 +14,9 @@ let projectMatrixLoc;
 let normalMatrixLoc;
 let lightPositionLoc;
 
+let theta = 0;
+let phi = 0;
+
 // 摄像机参数
 let eye = [0, 0, 1];
 let at = [0, 0, 0];
@@ -27,7 +30,7 @@ let right = 6;
 let near = -10;
 let far = 10;
 
-var lightPosition = vec4(-2, 2, 2, 1.0 );//光源位置
+var lightPosition = vec4(-4, 0, 4, 1.0 );
 var lightAmbient = vec4(0.2, 0.2, 0.2, 1.0 );
 var lightDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
 var lightSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
@@ -36,10 +39,11 @@ var materialAmbient = vec4( 1.0, 0.0, 1.0, 1.0 );
 var materialDiffuse = vec4( 1.0, 0.8, 0.0, 1.0 );
 var materialSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
 var materialShininess = 20.0;
-
+const speed = 0.1; // 移动速度
 
 class cube {
     points = [];
+    position = [0, 0, 0];
     indexArray = [
         0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4,
         3, 6, 2, 3, 7, 6, 1, 6, 5, 1, 2, 6, 0, 7, 3, 0, 4, 7
@@ -99,7 +103,14 @@ class cube {
         }
         return normalsArray;
     }
-
+    move(dx, dy, dz) {
+    
+        for (var i = 0; i < this.points.length; i++) {
+            this.points[i][0] +=  dx;
+            this.points[i][1] +=  dy;
+            this.points[i][2] +=  dz;
+        }
+    }
     draw() {
         var pointsArray = this.getPointsArray();
         var normalArray = this.getNormalsArray();
@@ -124,6 +135,59 @@ class cube {
     }
 }
 
+function handleKeyPress(event) {
+  
+    if (event.key === 'D' || event.key === 'd') {
+            pig[7].move(speed, 0, 0); // 向前移动
+            lightPosition[0]+=speed;
+    } else if (event.key === 'A' || event.key === 'a') {
+      
+            pig[7].move(-speed, 0, 0); // 向后移动
+            lightPosition[0]+=-speed;
+    }
+    else if (event.key === 'S' || event.key === 's') {
+    
+            pig[7].move(0, -speed, 0); // 向后移动
+            lightPosition[1]-=speed;
+    }
+    else if (event.key === 'w' || event.key === 'W') {
+            pig[7].move(0, speed, 0); // 向后移动
+            lightPosition[1]+=speed;
+    }
+    else if (event.key === 'q' || event.key === 'Q'){
+        theta -= 0.1 * Math.PI;
+        eye = [Math.cos(phi)*Math.sin(theta), Math.sin(phi), Math.cos(theta)*Math.cos(phi)];
+        //视角矩阵
+        modelViewMatrix = lookAt(eye, at, up);
+        NormalMatrix = normalMatrix(modelViewMatrix, true);
+    }
+    else if (event.key === 'e' || event.key === 'E'){
+        theta += 0.1 * Math.PI;
+        eye = [Math.cos(phi)*Math.sin(theta), Math.sin(phi), Math.cos(theta)*Math.cos(phi)];
+        //视角矩阵
+        modelViewMatrix = lookAt(eye, at, up);
+        NormalMatrix = normalMatrix(modelViewMatrix, true);
+    }
+    else if (event.key === 'z' || event.key === 'Z'){
+        phi -= 0.1 * Math.PI;
+        eye = [Math.cos(phi)*Math.sin(theta), Math.sin(phi), Math.cos(theta)*Math.cos(phi)];
+        //视角矩阵
+        modelViewMatrix = lookAt(eye, at, up);
+        NormalMatrix = normalMatrix(modelViewMatrix, true);
+    }
+    else if (event.key === 'c' || event.key === 'C'){
+        phi += 0.1 * Math.PI;
+        eye = [Math.cos(phi)*Math.sin(theta), Math.sin(phi), Math.cos(theta)*Math.cos(phi)];
+        //视角矩阵
+        modelViewMatrix = lookAt(eye, at, up);
+        NormalMatrix = normalMatrix(modelViewMatrix, true);
+    }
+    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
+    gl.uniformMatrix3fv(normalMatrixLoc, false, flatten(NormalMatrix));
+    gl.uniform4fv( gl.getUniformLocation(program,
+        "ulightPosition"),flatten(lightPosition) );
+    drawPig(); // 重新绘制小猪
+}
 
 // 猪的初始化
 function initPig() {
@@ -134,7 +198,7 @@ function initPig() {
     let leg3 = new cube(0.3, 0.3, 0.7, 1.25, 0.7, -0.7);
     let leg4 = new cube(0.3, 0.3, 0.7, -1.25, 0.7, -0.6);
     let nose = new cube(0.2, 0.4, 0.28, 2.9, 0, 0.6);
-    let my_cube = new cube(0.5, 0.5, 0.5, -4, 1, 0);
+    let my_cube = new cube(0.5, 0.5, 0.5, -4, 0, 0);
     pig.push(head);
     pig.push(body);
     pig.push(leg1);
@@ -167,6 +231,7 @@ window.onload = function init() {
     var diffuseProduct = mult(lightDiffuse, materialDiffuse);
     var specularProduct = mult(lightSpecular, materialSpecular);
 
+    eye = [Math.cos(phi)*Math.sin(theta), Math.sin(phi), Math.cos(theta)*Math.cos(phi)];
     //视角矩阵
     modelViewMatrix = lookAt(eye, at, up);
 
@@ -179,7 +244,7 @@ window.onload = function init() {
     normalMatrixLoc = gl.getUniformLocation(program, "normalMatrix");
     modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
     projectMatrixLoc = gl.getUniformLocation(program, "projectionMatrix");
-    lightPositionLoc = gl.getUniformLocation(program, "LightPosition");
+    
 
     gl.uniform4fv( gl.getUniformLocation(program,
         "ambientProduct"),flatten(ambientProduct) );
@@ -188,13 +253,14 @@ window.onload = function init() {
     gl.uniform4fv( gl.getUniformLocation(program,
         "specularProduct"),flatten(specularProduct) );
     gl.uniform4fv( gl.getUniformLocation(program,
-        "lightPosition"),flatten(lightPosition) );
+        "ulightPosition"),flatten(lightPosition) );
     gl.uniform1f( gl.getUniformLocation(program,
         "shininess"),materialShininess );
 
     gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
     gl.uniformMatrix4fv(projectMatrixLoc, false, flatten(projectMatrix));
     gl.uniformMatrix3fv(normalMatrixLoc, false, flatten(NormalMatrix));
-
+        
+    window.addEventListener('keydown', handleKeyPress);
     drawPig();
 }
