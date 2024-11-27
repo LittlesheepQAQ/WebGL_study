@@ -3,17 +3,46 @@ var canvas;
 let gl;
 let pig = [];
 let vPositionLoc;
+let vNormalLoc;
+let program;
+let NormalMatrix = [];
+let modelViewMatrix = [];
+let projectMatrix = [];
+
+let modelViewMatrixLoc;
+let projectMatrixLoc;
+let normalMatrixLoc;
+let lightPositionLoc;
 
 // 摄像机参数
-eye = [0, 0, 1];
-at = [0, 0, 0];
-up = [0, 1, 0];
+let eye = [0, 0, 1];
+let at = [0, 0, 0];
+let up = [0, 1, 0];
+
+//取景框
+let m_top = 6;
+let bottom = -6;
+let left = -6;
+let right = 6;
+let near = -10;
+let far = 10;
+
+var lightPosition = vec4(-2, 2, 2, 1.0 );//光源位置
+var lightAmbient = vec4(0.2, 0.2, 0.2, 1.0 );
+var lightDiffuse = vec4( 1.0, 1.0, 1.0, 1.0 );
+var lightSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
+
+var materialAmbient = vec4( 1.0, 0.0, 1.0, 1.0 );
+var materialDiffuse = vec4( 1.0, 0.8, 0.0, 1.0 );
+var materialSpecular = vec4( 1.0, 1.0, 1.0, 1.0 );
+var materialShininess = 20.0;
+
 
 class cube {
     points = [];
     indexArray = [
-        0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4,
-        3, 2, 6, 3, 6, 7, 1, 5, 6, 1, 6, 2, 0, 3, 7, 0, 7, 4
+        0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4,
+        3, 6, 2, 3, 7, 6, 1, 6, 5, 1, 2, 6, 0, 7, 3, 0, 4, 7
     ]
 
     vec3Minus(A , B){
@@ -27,14 +56,14 @@ class cube {
     constructor(x_scale = 1, y_scale = 1, z_scale = 1, x_offset = 0, y_offset = 0, z_offset = 0) {
         // 顶点坐标
         this.points = [
-            [1, 1, 1],
-            [1, 1, -1],
-            [-1, 1, -1],
-            [-1, 1, 1],
-            [1, -1, 1],
-            [1, -1, -1],
-            [-1, -1, -1],
-            [-1, -1, 1]
+            [1, 1, 1], //0
+            [1, -1, 1], //1
+            [-1, -1, 1], // 2
+            [-1, 1, 1], //3
+            [1, 1, -1], // 4
+            [1, -1, -1],// 5
+            [-1, -1, -1],// 6
+            [-1,  1, -1]//7  
         ];
         this.x_scale = x_scale;
         this.y_scale = y_scale;
@@ -52,23 +81,21 @@ class cube {
 
     getPointsArray() {
         var pointsArray = [];
-        for(i in pointsArray) {
-            pointsArray.push(points[i]);
+        for(var i = 0; i < this.indexArray.length; i++) {
+            pointsArray.push(this.points[this.indexArray[i]]);
         }
+        return pointsArray;
     }
 
     getNormalsArray() {
         var normalsArray = [];
-        for(var i = 0; i < this.points.length /3; i++){
-            var A_normal = cross(this.vec3Minus(points[i * 3 + 1], point[i * 3]), 
-                this.vec3Minus(points[i * 3 + 2], points[i * 3]));
-            var B_normal = cross(this.vec3Minus(points[i * 3 + 2], points[i * 3 + 1]), 
-                this.vec3Minus(points[i * 3], points[i * 3 + 1]));
-            var C_normal = cross(this.vec3Minus(points[i * 3], points[i * 3 + 2]),
-                this.vec3Minus(points[i * 3 + 1], points[i * 3 + 2]));
-            normalsArray.push(A_normal);
-            normalsArray.push(B_normal);
-            normalsArray.push(C_normal);
+        for(var i = 0; i < this.indexArray.length /3; i++){
+            var normal = cross(this.vec3Minus(this.points[this.indexArray[i * 3 + 1]], this.points[this.indexArray[i * 3]]), 
+                this.vec3Minus(this.points[this.indexArray[i * 3 + 2]], this.points[this.indexArray[i * 3]]));
+            normal = normalize(normal);
+            normalsArray.push(normal);
+            normalsArray.push(normal);
+            normalsArray.push(normal);
         }
         return normalsArray;
     }
@@ -107,6 +134,7 @@ function initPig() {
     let leg3 = new cube(0.3, 0.3, 0.7, 1.25, 0.7, -0.7);
     let leg4 = new cube(0.3, 0.3, 0.7, -1.25, 0.7, -0.6);
     let nose = new cube(0.2, 0.4, 0.28, 2.9, 0, 0.6);
+    let my_cube = new cube(0.5, 0.5, 0.5, -4, 1, 0);
     pig.push(head);
     pig.push(body);
     pig.push(leg1);
@@ -114,6 +142,7 @@ function initPig() {
     pig.push(leg3);
     pig.push(leg4);
     pig.push(nose);
+    pig.push(my_cube);
 }
 
 // 绘制猪
@@ -128,11 +157,44 @@ window.onload = function init() {
     canvas = document.getElementById("canvas");
     gl = WebGLUtils.setupWebGL(canvas);
     if (!gl) alert("WebGL isn’t available");
-    var program = initShaders(gl, "vertex-shader", "fragment-shader");
+    program = initShaders(gl, "vertex-shader", "fragment-shader");
     gl.useProgram(program);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0.8, 0.8, 0.8, 1.0);
+    gl.enable(gl.DEPTH_TEST);
     
+    var ambientProduct = mult(lightAmbient, materialAmbient);
+    var diffuseProduct = mult(lightDiffuse, materialDiffuse);
+    var specularProduct = mult(lightSpecular, materialSpecular);
+
+    //视角矩阵
+    modelViewMatrix = lookAt(eye, at, up);
+
+    //normalMatrix是modelViewMatrix的子矩阵转置之后取逆
+    NormalMatrix = normalMatrix(modelViewMatrix, true);
+
+    //投影矩阵
+    projectMatrix = ortho(left, right, bottom, m_top, near, far);
+
+    normalMatrixLoc = gl.getUniformLocation(program, "normalMatrix");
+    modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
+    projectMatrixLoc = gl.getUniformLocation(program, "projectionMatrix");
+    lightPositionLoc = gl.getUniformLocation(program, "LightPosition");
+
+    gl.uniform4fv( gl.getUniformLocation(program,
+        "ambientProduct"),flatten(ambientProduct) );
+    gl.uniform4fv( gl.getUniformLocation(program,
+        "diffuseProduct"),flatten(diffuseProduct) );
+    gl.uniform4fv( gl.getUniformLocation(program,
+        "specularProduct"),flatten(specularProduct) );
+    gl.uniform4fv( gl.getUniformLocation(program,
+        "lightPosition"),flatten(lightPosition) );
+    gl.uniform1f( gl.getUniformLocation(program,
+        "shininess"),materialShininess );
+
+    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(modelViewMatrix));
+    gl.uniformMatrix4fv(projectMatrixLoc, false, flatten(projectMatrix));
+    gl.uniformMatrix3fv(normalMatrixLoc, false, flatten(NormalMatrix));
 
     drawPig();
 }
